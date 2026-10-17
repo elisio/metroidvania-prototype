@@ -49,7 +49,7 @@ window.HERO_SHEET = {
    "h": 160,
    "ax": 60,
    "ay": 156,
-   "hx": 35,
+   "hx": 31,
    "hy": 93
   },
   "run_1": {
@@ -59,7 +59,7 @@ window.HERO_SHEET = {
    "h": 160,
    "ax": 60,
    "ay": 156,
-   "hx": 41,
+   "hx": 37,
    "hy": 97
   },
   "run_2": {
@@ -69,7 +69,7 @@ window.HERO_SHEET = {
    "h": 160,
    "ax": 60,
    "ay": 156,
-   "hx": 44,
+   "hx": 40,
    "hy": 97
   },
   "run_3": {
@@ -79,7 +79,7 @@ window.HERO_SHEET = {
    "h": 160,
    "ax": 60,
    "ay": 156,
-   "hx": 41,
+   "hx": 37,
    "hy": 97
   },
   "run_4": {
@@ -89,7 +89,7 @@ window.HERO_SHEET = {
    "h": 160,
    "ax": 60,
    "ay": 156,
-   "hx": 35,
+   "hx": 31,
    "hy": 93
   },
   "run_5": {
@@ -99,7 +99,7 @@ window.HERO_SHEET = {
    "h": 160,
    "ax": 60,
    "ay": 156,
-   "hx": 29,
+   "hx": 25,
    "hy": 86
   },
   "run_6": {
@@ -109,7 +109,7 @@ window.HERO_SHEET = {
    "h": 160,
    "ax": 60,
    "ay": 156,
-   "hx": 27,
+   "hx": 23,
    "hy": 82
   },
   "run_7": {
@@ -119,7 +119,7 @@ window.HERO_SHEET = {
    "h": 160,
    "ax": 60,
    "ay": 156,
-   "hx": 29,
+   "hx": 25,
    "hy": 86
   },
   "jump_0": {
@@ -129,7 +129,7 @@ window.HERO_SHEET = {
    "h": 160,
    "ax": 60,
    "ay": 156,
-   "hx": 29,
+   "hx": 26,
    "hy": 87
   },
   "jump_1": {
@@ -139,7 +139,7 @@ window.HERO_SHEET = {
    "h": 160,
    "ax": 60,
    "ay": 156,
-   "hx": 34,
+   "hx": 31,
    "hy": 91
   },
   "fall_0": {
@@ -149,7 +149,7 @@ window.HERO_SHEET = {
    "h": 160,
    "ax": 60,
    "ay": 156,
-   "hx": 39,
+   "hx": 36,
    "hy": 95
   },
   "fall_1": {
@@ -159,7 +159,7 @@ window.HERO_SHEET = {
    "h": 160,
    "ax": 60,
    "ay": 156,
-   "hx": 44,
+   "hx": 41,
    "hy": 97
   },
   "attack_0": {
