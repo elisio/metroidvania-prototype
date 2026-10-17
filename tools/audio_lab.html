@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio Lab — Noite de Ferro</title>
+<style>
+  :root {
+    --bg: #0d0f17; --panel: #161a26; --line: #2a3042; --text: #d9dbe4; --muted: #8a90a6;
+    --gold: #e8c46a; --cyan: #5fd3e6; --red: #d2524a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+  header { padding: 16px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  h1 { margin: 0; font-size: 18px; letter-spacing: .04em; color: var(--gold); font-weight: 600; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  main { padding: 16px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); max-width: 1200px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { background: #1f2434; color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 7px 10px;
+           font: inherit; font-size: 13px; cursor: pointer; }
+  button:hover { border-color: var(--gold); }
+  button.on { background: #3a3220; border-color: var(--gold); color: var(--gold); }
+  .row { display: grid; grid-template-columns: 70px 1fr 40px; gap: 8px; align-items: center; margin: 6px 0; }
+  .row span:last-child { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--gold); }
+  #status { color: var(--muted); font-size: 13px; }
+  #meter { height: 10px; background: #0a0c12; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; flex: 1; min-width: 120px; }
+  #meterFill { height: 100%; width: 0; background: linear-gradient(90deg, var(--cyan), var(--gold) 70%, var(--red)); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  td, th { padding: 3px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+  td:first-child, th:first-child { text-align: left; }
+  .ok { color: #7fd18b; } .bad { color: var(--red); }
+  .wide { grid-column: 1 / -1; }
+  label.opt { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
+  @media (max-width: 520px) { main { padding: 10px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Noite de Ferro · Audio Lab</h1>
+  <button id="btnInit">Iniciar áudio</button>
+  <button id="btnMute">Mudo</button>
+  <div id="meter"><div id="meterFill"></div></div>
+  <span id="status">clique em qualquer botão para desbloquear o AudioContext</span>
+</header>
+<main>
+  <section>
+    <h2>Efeitos</h2>
+    <div class="grid" id="sfx"></div>
+    <div class="row" style="margin-top:12px"><span>pitch</span><input type="range" id="pitch" min="0.5" max="2" step="0.01" value="1"><span id="pitchV">1.00</span></div>
+    <div class="row"><span>pan</span><input type="range" id="pan" min="-1" max="1" step="0.01" value="0"><span id="panV">0.00</span></div>
+    <div class="row"><span>volume</span><input type="range" id="svol" min="0" max="1" step="0.01" value="1"><span id="svolV">1.00</span></div>
+    <div class="grid" style="margin-top:8px">
+      <button id="runSteps">Correr (step x16)</button>
+      <button id="pickups">Coletar 8 fragmentos</button>
+      <button id="fall">Queda forte (land 1.0)</button>
+    </div>
+  </section>
+  <section>
+    <h2>Música</h2>
+    <div class="grid" id="music"></div>
+    <h2 style="margin-top:16px">Ambiente</h2>
+    <div class="row"><span>chuva</span><input type="range" id="rain" min="0" max="1" step="0.01" value="0"><span id="rainV">0.00</span></div>
+    <div class="row"><span>vapor</span><input type="range" id="steam" min="0" max="1" step="0.01" value="0"><span id="steamV">0.00</span></div>
+    <div class="grid"><button id="thunder">Trovão (relâmpago)</button></div>
+  </section>
+  <section>
+    <h2>Volumes (salvos)</h2>
+    <div id="vols"></div>
+  </section>
+  <section class="wide">
+    <h2>Teste offline (OfflineAudioContext)</h2>
+    <div class="grid"><button id="runTests">Renderizar e medir todos</button></div>
+    <div id="report" style="margin-top:10px"></div>
+  </section>
+</main>
+
+<script src="../src/audio/audio.js"></script>
+<script>
+(function () {
+  'use strict';
+  const A = Game.Audio;
+  const $ = (id) => document.getElementById(id);
+  const status = (t) => { $('status').textContent = t; };
+
+  function ensure() { A.init(); }
+  document.addEventListener('pointerdown', ensure, true);
+  $('btnInit').onclick = () => { ensure(); status('áudio iniciado'); };
+  function refreshMute() { $('btnMute').classList.toggle('on', A.isMuted()); }
+  $('btnMute').onclick = () => { A.mute(!A.isMuted()); refreshMute(); };
+  refreshMute();
+
+  const opts = () => ({ pitch: +$('pitch').value, pan: +$('pan').value, volume: +$('svol').value });
+  ['pitch', 'pan', 'svol'].forEach((id) => { $(id).oninput = () => { $(id + 'V').textContent = (+$(id).value).toFixed(2); }; });
+
+  A.SOUNDS.forEach((name) => {
+    const b = document.createElement('button');
+    b.textContent = name; b.dataset.sound = name;
+    b.onclick = () => { ensure(); const ok = A.play(name, opts()); status(name + (ok ? '' : ' (limitado: retrigger/vozes)')); };
+    $('sfx').appendChild(b);
+  });
+  $('runSteps').onclick = () => { ensure(); for (let i = 0; i < 16; i++) setTimeout(() => A.play('step', { pan: +$('pan').value }), i * 333 / 2); };
+  $('pickups').onclick = () => { ensure(); for (let i = 0; i < 8; i++) setTimeout(() => A.play('pickup'), i * 110); };
+  $('fall').onclick = () => { ensure(); A.play('land', { volume: 1 }); };
+
+  const trackBtns = {};
+  A.TRACKS.concat([null]).forEach((t) => {
+    const b = document.createElement('button');
+    b.textContent = t || 'parar'; trackBtns[t || 'null'] = b;
+    b.onclick = () => {
+      ensure(); A.music(t);
+      Object.keys(trackBtns).forEach((k) => trackBtns[k].classList.toggle('on', k === String(t) && t !== null));
+      status(t ? 'música: ' + t : 'música parada');
+    };
+    $('music').appendChild(b);
+  });
+  ['rain', 'steam'].forEach((id) => {
+    $(id).oninput = () => { ensure(); $(id + 'V').textContent = (+$(id).value).toFixed(2); A.ambient(id, +$(id).value); };
+  });
+  $('thunder').onclick = () => { ensure(); A.thunder(); };
+
+  ['master', 'music', 'sfx', 'ambient'].forEach((bus) => {
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = '<span>' + bus + '</span><input type="range" min="0" max="1" step="0.01"><span></span>';
+    const inp = row.querySelector('input'), val = row.querySelectorAll('span')[1];
+    inp.value = A.getVolume(bus); val.textContent = (+inp.value).toFixed(2);
+    inp.oninput = () => { A.setVolume(bus, +inp.value); val.textContent = (+inp.value).toFixed(2); };
+    $('vols').appendChild(row);
+  });
+
+  // medidor
+  let buf = null;
+  (function meter() {
+    const an = A.getAnalyser();
+    if (an) {
+      buf = buf || new Float32Array(an.fftSize);
+      an.getFloatTimeDomainData(buf);
+      let p = 0; for (let i = 0; i < buf.length; i++) { const v = Math.abs(buf[i]); if (v > p) p = v; }
+      $('meterFill').style.width = Math.min(100, p * 100) + '%';
+    }
+    requestAnimationFrame(meter);
+  })();
+
+  // ---------------- testes offline ----------------
+  const SFX_LEN = { relic: 3.6, save: 4.4, death: 4, respawn: 2.6, break_wall: 2.2, heart_up: 2 };
+  async function runTests(opt) {
+    opt = opt || {};
+    const musicSecs = opt.musicSecs || 24;
+    const results = [];
+    const fmt = (s) => ({ peak: +s.peak.toFixed(4), peakDb: +s.peakDb.toFixed(1), rmsDb: +s.rmsDb.toFixed(1), winDb: +s.winDb.toFixed(1), silent: s.silent, clipped: s.clipped });
+    for (const name of A.SOUNDS) {
+      const secs = SFX_LEN[name] || 1.2;
+      const b = await A.renderOffline(secs, (E) => E.play(name, name === 'land' ? { volume: 1 } : {}));
+      results.push(Object.assign({ kind: 'sfx', name }, fmt(A.analyze(b))));
+    }
+    // estresse: 16 passos rápidos + whip x8 (limite de vozes)
+    {
+      const b = await A.renderOffline(3, (E, at) => {
+        for (let i = 0; i < 40; i++) at(i * 0.03, (E2) => E2.play('step'));
+        for (let i = 0; i < 8; i++) at(1 + i * 0.05, (E2) => { E2.play('whip'); E2.play('whip_hit'); });
+      });
+      results.push(Object.assign({ kind: 'stress', name: 'step x40 + whip x8' }, fmt(A.analyze(b))));
+    }
+    for (const t of A.TRACKS) {
+      const b = await A.renderOffline(musicSecs, (E) => E.music(t));
+      const s = A.analyze(b, 2);
+      results.push(Object.assign({ kind: 'music', name: t, secs: musicSecs }, fmt(s)));
+    }
+    {
+      const b = await A.renderOffline(8, (E, at) => { E.ambient('rain', 1); at(3, (E2) => E2.thunder()); });
+      results.push(Object.assign({ kind: 'ambient', name: 'rain 1.0 + thunder' }, fmt(A.analyze(b, 1))));
+    }
+    {
+      const b = await A.renderOffline(5, (E) => E.ambient('steam', 1));
+      results.push(Object.assign({ kind: 'ambient', name: 'steam 1.0' }, fmt(A.analyze(b, 1))));
+    }
+    {
+      // mix completo: música exterior + chuva + efeitos de combate
+      const b = await A.renderOffline(10, (E, at) => {
+        E.music('exterior'); E.ambient('rain', 0.8);
+        for (let i = 0; i < 14; i++) at(2 + i * 0.17, (E2) => E2.play('step'));
+        at(5, (E2) => E2.play('whip')); at(5.1, (E2) => E2.play('whip_hit'));
+        at(6, (E2) => E2.play('break_wall')); at(7, (E2) => E2.thunder()); at(8, (E2) => E2.play('relic'));
+      });
+      results.push(Object.assign({ kind: 'mix', name: 'exterior+rain+sfx' }, fmt(A.analyze(b, 1))));
+    }
+    {
+      // crossfade
+      const b = await A.renderOffline(8, (E, at) => { E.music('title'); at(3, (E2) => E2.music('tower')); at(6, (E2) => E2.music(null)); });
+      results.push(Object.assign({ kind: 'mix', name: 'crossfade title→tower→null' }, fmt(A.analyze(b, 0.5))));
+    }
+    return results;
+  }
+  window.runAudioTests = runTests;
+
+  $('runTests').onclick = async () => {
+    status('renderizando...');
+    $('runTests').disabled = true;
+    try {
+      const r = await runTests({ musicSecs: 16 });
+      let h = '<table><tr><th>som</th><th>pico</th><th>pico dBFS</th><th>RMS dBFS</th><th>RMS 50 ms máx</th><th>ok</th></tr>';
+      r.forEach((x) => {
+        const ok = !x.silent && !x.clipped;
+        h += '<tr><td>' + x.kind + ' · ' + x.name + '</td><td>' + x.peak + '</td><td>' + x.peakDb + '</td><td>' + x.rmsDb + '</td><td>' + x.winDb +
+          '</td><td class="' + (ok ? 'ok' : 'bad') + '">' + (ok ? 'ok' : (x.silent ? 'silêncio' : 'clip')) + '</td></tr>';
+      });
+      $('report').innerHTML = h + '</table>';
+      status('testes concluídos');
+    } catch (e) { status('erro: ' + e.message); }
+    $('runTests').disabled = false;
+  };
+})();
+</script>
+</body>
+</html>
