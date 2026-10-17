@@ -1,0 +1,87 @@
+name: Publicar no GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Um deploy por vez; não cancela um deploy já em andamento.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+          # O GITHUB_TOKEN normalmente não pode habilitar o Pages sozinho.
+          # Se quiser habilitação automática, crie o secret PAGES_ENABLEMENT_TOKEN
+          # (PAT com permissão de administração/Pages no repositório).
+          # Caso contrário, habilite em Settings → Pages → Source: GitHub Actions.
+          token: ${{ secrets.PAGES_ENABLEMENT_TOKEN || github.token }}
+
+      - name: Montar _site (somente o necessário em produção)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+
+          if [ ! -f index.html ]; then
+            echo "::error::index.html não encontrado na raiz do repositório"
+            exit 1
+          fi
+
+          # Arquivos de topo usados pelo navegador (os que existirem).
+          shopt -s nullglob
+          for f in *.html *.css *.ico *.webmanifest *.png *.svg; do
+            cp "$f" _site/
+          done
+
+          # Código do jogo.
+          cp -R src _site/src
+
+          # Arte do jogo. assets/src/ (referência) é pequeno e pode ser usado
+          # na tela de título, por isso também vai.
+          mkdir -p _site/assets
+          cp -R assets/game _site/assets/game
+          if [ -d assets/src ]; then cp -R assets/src _site/assets/src; fi
+
+          # Não vão para produção: tools/, docs/, .github/, README etc.
+          find _site -name '__pycache__' -type d -prune -exec rm -rf {} +
+          find _site \( -name '*.md' -o -name '*.py' -o -name '.gitkeep' -o -name '.DS_Store' \) -type f -delete
+
+          # Servir arquivos como estão (sem processamento Jekyll).
+          touch _site/.nojekyll
+
+          echo "Conteúdo de _site:"
+          du -sh _site
+          find _site -type f | sort
+
+      - name: Enviar artefato
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Sintaxe JS (node --check em src/ e assets/game/)
+        run: bash tools/ci/check_syntax.sh
+
+      - name: Manifesto de assets (todo arquivo referenciado existe)
+        run: node tools/ci/check_manifest.js
+
+      - name: Smoke test existe?
+        id: smoke
+        shell: bash
+        run: |
+          if [ -f tools/smoke_test.py ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::tools/smoke_test.py não existe — smoke test pulado."
+          fi
+
+      - name: Python
+        if: steps.smoke.outputs.present == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar Playwright + Chromium
+        if: steps.smoke.outputs.present == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Smoke test (servido por python3 -m http.server)
+        if: steps.smoke.outputs.present == 'true'
+        shell: bash
+        env:
+          GAME_URL: http://127.0.0.1:8000/index.html
+          BASE_URL: http://127.0.0.1:8000/
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8000 --bind 127.0.0.1 > /tmp/http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null "$BASE_URL" && break
+            sleep 0.5
+          done
+          python3 tools/smoke_test.py
+
+      - name: Guardar capturas do smoke test
+        if: always() && steps.smoke.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-screens
+          path: |
+            tools/screens/
+            /tmp/http.log
+          if-no-files-found: ignore
