@@ -19,6 +19,16 @@
     if (q) A.base = q.endsWith('/') ? q : q + '/';
   } catch (e) { /* ignore */ }
 
+  /** Nomes do contrato (docs/ASSET_CONTRACT.md) que o motor usa. */
+  A.CONTRACT = [
+    'bg_far', 'bg_mid', 'bg_interior',
+    'tile_deck', 'tile_brick', 'tile_brick_dark', 'tile_girder_v', 'tile_girder_x', 'tile_stairs',
+    'prop_gargoyle', 'prop_lamp', 'prop_pipes', 'prop_fence', 'prop_water_tower', 'prop_neon_cyan',
+    'prop_neon_purple', 'prop_window_bars', 'prop_fluorescent',
+    'hero_portrait', 'hud_portrait_frame', 'hud_bar_frame', 'hud_heart_full', 'hud_heart_empty',
+    'hud_slot', 'hud_minimap_frame', 'icon_book', 'icon_potion', 'hud_level_badge', 'hud_lives_badge'
+  ];
+
   function loadScript(src) {
     return new Promise((res) => {
       const s = document.createElement('script');
@@ -45,17 +55,22 @@
     A.manifest = okM && window.ASSET_MANIFEST ? window.ASSET_MANIFEST : null;
     A.sheet = okH && window.HERO_SHEET && window.HERO_SHEET.frames ? window.HERO_SHEET : null;
 
-    const jobs = [];
+    // Lista de nomes: o manifesto (se existir) + os nomes fixos do contrato.
+    const files = {};
+    for (const n of A.CONTRACT) files[n] = n + '.png';
     if (A.manifest) {
       for (const name in A.manifest) {
         if (name === 'hero_sheet') continue;
         const ent = A.manifest[name];
         const file = typeof ent === 'string' ? ent : ent && ent.file;
-        if (!file || !/\.(png|jpe?g|webp)$/i.test(file)) continue;
-        jobs.push(loadImage(A.base + file).then((im) => {
-          if (im && im.width > 0) { A.images[name] = im; A.loaded.push(name); } else A.missing.push(name);
-        }));
+        if (file && /\.(png|jpe?g|webp)$/i.test(file)) files[name] = file;
       }
+    }
+    const jobs = [];
+    for (const name in files) {
+      jobs.push(loadImage(A.base + files[name]).then((im) => {
+        if (im && im.width > 0) { A.images[name] = im; A.loaded.push(name); } else A.missing.push(name);
+      }));
     }
     if (A.sheet) {
       jobs.push(loadImage(A.base + (A.sheet.image || 'hero_sheet.png')).then((im) => {

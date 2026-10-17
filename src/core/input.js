@@ -35,7 +35,7 @@
   ACTIONS.forEach((a) => { I.held[a] = I.pressed[a] = I.released[a] = I.prev[a] = false; });
 
   window.addEventListener('keydown', (e) => {
-    if (Game.Audio) Game.Audio.unlock();
+    try { if (Game.Audio && Game.Audio.init) Game.Audio.init(); } catch (err) { /* áudio opcional */ }
     const acts = KEYMAP[e.code];
     if (!acts) return;
     e.preventDefault();

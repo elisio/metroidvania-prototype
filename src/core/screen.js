@@ -50,23 +50,27 @@
     let last = performance.now(), acc = 0, fpsAcc = 0, fpsN = 0;
     const step = C.FIXED_DT;
     function frame(now) {
+      requestAnimationFrame(frame); // agenda antes: um erro não congela o jogo
       let dt = (now - last) / 1000;
       last = now;
       if (dt > 0.25) dt = 0.25;
       if (dt < 0) dt = 0;
       const t0 = performance.now();
-      if (!L.frozen) {
-        acc += dt;
-        let n = 0;
-        while (acc >= step && n < C.MAX_STEPS_PER_FRAME) { update(step); acc -= step; n++; }
-        if (n >= C.MAX_STEPS_PER_FRAME) acc = 0;
-        L.alpha = acc / step;
-      } else L.alpha = 1;
-      try { render(L.alpha, dt); } catch (e) { console.error(e); throw e; }
+      try {
+        if (!L.frozen) {
+          acc += dt;
+          let n = 0;
+          while (acc >= step && n < C.MAX_STEPS_PER_FRAME) { update(step); acc -= step; n++; }
+          if (n >= C.MAX_STEPS_PER_FRAME) acc = 0;
+          L.alpha = acc / step;
+        } else L.alpha = 1;
+        render(L.alpha, dt);
+      } catch (e) {
+        if (!L.errorShown) { console.error(e); L.errorShown = true; }
+      }
       L.frameMs = L.frameMs * 0.9 + (performance.now() - t0) * 0.1;
       fpsAcc += dt; fpsN++;
       if (fpsAcc >= 0.5) { L.fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
-      requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
   };
