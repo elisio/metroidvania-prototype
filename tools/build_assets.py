@@ -78,7 +78,12 @@ def contact_sheet(entries):
 
 def main():
     if "--clean" in sys.argv:
-        shutil.rmtree(os.path.join(TOOLS, ".cache"), ignore_errors=True)
+        # only the generated caches; keep tools/.cache/before/ (art-review snapshots)
+        cdir = os.path.join(TOOLS, ".cache")
+        for f in (os.listdir(cdir) if os.path.isdir(cdir) else []):
+            p = os.path.join(cdir, f)
+            if os.path.isfile(p):
+                os.remove(p)
     os.makedirs(OUT, exist_ok=True)
     t0 = time.time()
     R = ref_rgb()
