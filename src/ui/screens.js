@@ -222,8 +222,9 @@
     Pause.menu = new Menu([
       { label: 'Continuar', action: () => Game.G.closeOverlay() },
       { label: 'Mapa', action: () => Game.G.openMap() },
-      { label: () => 'Música   ◂ ' + pct(S.data.music) + ' ▸', adjust: (d) => { S.data.music = U.clamp(Math.round((S.data.music + d * 0.1) * 10) / 10, 0, 1); S.store(); } },
-      { label: () => 'Efeitos  ◂ ' + pct(S.data.sfx) + ' ▸', adjust: (d) => { S.data.sfx = U.clamp(Math.round((S.data.sfx + d * 0.1) * 10) / 10, 0, 1); S.store(); au('play', 'pickup'); } },
+      { label: () => 'Música   ◂ ' + pct(S.vol('music')) + ' ▸', adjust: (d) => S.setVol('music', U.clamp(Math.round((S.vol('music') + d * 0.1) * 10) / 10, 0, 1)) },
+      { label: () => 'Efeitos  ◂ ' + pct(S.vol('sfx')) + ' ▸', adjust: (d) => { S.setVol('sfx', U.clamp(Math.round((S.vol('sfx') + d * 0.1) * 10) / 10, 0, 1)); au('play', 'pickup'); } },
+      { label: () => 'Ambiente ◂ ' + pct(S.vol('ambient')) + ' ▸', adjust: (d) => S.setVol('ambient', U.clamp(Math.round((S.vol('ambient') + d * 0.1) * 10) / 10, 0, 1)) },
       { label: () => 'Tremor de tela: ' + (S.data.shake ? 'sim' : 'não'), adjust: () => { S.data.shake = !S.data.shake; S.store(); } },
       { label: 'Tela cheia', action: () => Game.Screen.toggleFullscreen() },
       { label: 'Controles', action: () => { Pause.controls = true; } },
@@ -242,13 +243,13 @@
   Pause.draw = function (g, time, game) {
     g.fillStyle = 'rgba(4,5,10,0.6)'; g.fillRect(0, 0, VW, VH);
     if (Pause.controls) return drawControls(g);
-    panel(g, VW / 2 - 230, 70, 460, 420);
+    panel(g, VW / 2 - 230, 56, 460, 448);
     g.font = serif(30, true);
-    text(g, 'Pausa', VW / 2, 118, '#ffd890');
+    text(g, 'Pausa', VW / 2, 102, '#ffd890');
     const st = game.state;
     g.font = serif(13);
-    text(g, 'Tempo ' + U.fmtTime(st.playTime) + '   ·   Itens ' + Game.G.completion() + '%   ·   Quedas ' + st.deaths, VW / 2, 146, '#9a97ae');
-    Pause.menu.draw(g, VW / 2, 188, 36, time);
+    text(g, 'Tempo ' + U.fmtTime(st.playTime) + '   ·   Itens ' + Game.G.completion() + '%   ·   Quedas ' + st.deaths, VW / 2, 130, '#9a97ae');
+    Pause.menu.draw(g, VW / 2, 170, 36, time);
   };
 
   function drawControls(g) {

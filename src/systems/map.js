@@ -78,7 +78,7 @@
     const blink = Math.sin(time * 8) > -0.2;
     if (blink) {
       const px = ox + pc.x * cs, py = oy + pc.y * csH;
-      const s = Math.max(3, cs * 0.18);
+      const s = U.clamp(cs * 0.18, 3, 9);
       g.fillStyle = '#ffcf5a';
       g.beginPath(); g.moveTo(px, py - s * 1.3); g.lineTo(px + s, py); g.lineTo(px + s * 0.6, py + s); g.lineTo(px - s * 0.6, py + s); g.lineTo(px - s, py); g.closePath(); g.fill();
       g.strokeStyle = '#5a3a10'; g.lineWidth = 1; g.stroke();

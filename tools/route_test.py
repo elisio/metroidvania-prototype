@@ -58,7 +58,7 @@ def legs(R):
 
     print('\n[1] Passarela: chicote quebra a parede rachada e abre a Fábrica')
     R.js('() => { Game.Save.wipe(); Game.G.newGame(); Game.Test.freeze(true); Game.Test.step(40); }')
-    i = R.run([['walk', 49], ['tap', 'attack'], ['wait', 30]])
+    i = R.run([['walk', 19], ['hold', ['right'], 6], ['hold', ['right', 'jump'], 30], ['until', 'grounded', 120, ['right']], ['walk', 49], ['tap', 'attack'], ['wait', 30]])
     R.check('ainda na passarela antes de quebrar', i['room'] == 'passarela', i)
     i = R.run([['walk', 51], ['tap', 'attack'], ['wait', 30]])
     broken = R.js('() => Object.keys(Game.G.state.broken).length')
@@ -71,20 +71,27 @@ def legs(R):
     R.place('fabrica', 15, 13, NONE)
     i = R.run([['hold', ['jump'], 40], ['wait', 40]])
     R.check('sem pulo duplo continua no chão da fábrica', i['ty'] == 13 and i['room'] == 'fabrica', i)
-    R.place('fabrica', 41, 15, NONE)
+    R.place('fabrica', 41, 14, NONE)
     i = R.run([['hold', ['down', 'jump'], 2], ['until', 'room:porao', 200], ['until', 'grounded', 400]])
     R.check('caiu no Porão pela grade', i['room'] == 'porao', i)
 
     print('\n[3] Porão: parede rachada -> relíquia do PULO DUPLO')
-    R.place('porao', 14, 14, NONE)
-    i = R.run([['walk', 12], ['hold', ['left'], 2], ['tap', 'attack'], ['wait', 30], ['walk', 5], ['wait', 10]])
+    R.place('porao', 19, 14, NONE)
+    i = R.run([['walk', 18], ['hold', ['left'], 6], ['hold', ['left', 'jump'], 24], ['until', 'grounded', 120, ['left']],
+               ['walk', 12], ['hold', ['left'], 2], ['tap', 'attack'], ['wait', 30], ['walk', 5], ['wait', 10]])
     R.check('obteve pulo duplo', i['abilities']['double'], i)
     R.shot('02_porao')
     print('    subindo as grades de volta à fábrica')
-    i = R.run([['walk', 38], ['hold', ['jump'], 22], ['wait', 50],
-               ['walk', 46], ['hold', ['jump'], 22], ['wait', 50],
-               ['walk', 40], ['hold', ['jump'], 22], ['wait', 50],
-               ['walk', 41], ['hold', ['jump'], 12], ['hold', ['jump'], 22], ['until', 'room:fabrica', 200], ['until', 'grounded', 300]])
+    i = R.run([['walk', 12], ['hold', ['right'], 6], ['hold', ['right', 'jump'], 24], ['until', 'grounded', 120, ['right']],
+               ['walk', 22], ['hold', ['right'], 4], ['hold', ['right', 'jump'], 12], ['hold', ['right', 'jump'], 20], ['until', 'grounded', 120, ['right']]])
+    R.check('  atravessou espinhos e bloco do porão', i['tx'] >= 24 and i['hearts'] == i['maxHearts'], i)
+    i = R.run([['walk', 38], ['hold', ['jump'], 22], ['until', 'grounded', 120]])
+    R.check('  degrau 1 (grade linha 12)', i['ty'] == 11, i)
+    i = R.run([['walk', 41], ['hold', ['jump', 'right'], 22], ['until', 'grounded', 120, ['right']]])
+    R.check('  degrau 2 (grade linha 9)', i['ty'] == 8, i)
+    i = R.run([['walk', 44], ['hold', ['jump', 'left'], 22], ['until', 'grounded', 120, ['left']]])
+    R.check('  degrau 3 (grade linha 6)', i['ty'] == 5, i)
+    i = R.run([['walk', 41], ['hold', ['jump'], 12], ['hold', ['jump'], 22], ['until', 'room:fabrica', 200], ['until', 'grounded', 300]])
     R.check('voltou do porão para a fábrica com pulo duplo', i['room'] == 'fabrica', i)
 
     print('\n[4] Fábrica -> Andaimes (pulo duplo) -> relíquia do DASH')
@@ -119,48 +126,46 @@ def legs(R):
     R.check('dash atravessou a grade de energia até a Galeria', i['room'] == 'galeria', i)
 
     print('\n[7] Galeria -> Cisterna -> relíquia do GANCHO')
-    R.place('galeria', 12, 13, DD)
-    i = R.run([['walk', 13], ['hold', ['right', 'jump'], 14], ['hold', ['right', 'jump'], 20], ['until', 'grounded', 200, ['right']]])
-    R.check('atravessou o fosso de espinhos (pulo duplo)', i['tx'] >= 21 and i['hearts'] == i['maxHearts'], i)
+    R.place('galeria', 9, 13, DD)
+    i = R.run([['walk', 11], ['hold', ['right'], 12], ['hold', ['right', 'jump'], 14], ['hold', ['right', 'jump'], 20], ['until', 'grounded', 200, ['right']]])
+    R.check('atravessou o fosso de espinhos (pulo duplo)', i['tx'] >= 20 and i['hearts'] == i['maxHearts'], i)
     i = R.run([['walk', 29], ['hold', ['right'], 18], ['until', 'grounded', 60], ['hold', ['down', 'jump'], 2], ['until', 'room:cisterna', 200], ['until', 'grounded', 400]])
     R.check('desceu à Cisterna', i['room'] == 'cisterna', i)
-    i = R.run([['walk', 39], ['hold', ['right', 'jump'], 12], ['hold', ['right', 'jump'], 26], ['hold', ['right'], 30], ['until', 'grounded', 200]])
+    for k in range(3):
+        if i['ty'] < 13:
+            i = R.run([['hold', ['down', 'jump'], 2], ['until', 'grounded', 200]])
+    R.check('chegou ao fundo da cisterna', i['ty'] == 14, i)
+    i = R.run([['walk', 39], ['hold', ['right'], 6], ['hold', ['right', 'jump'], 12], ['hold', ['right', 'jump'], 20], ['until', 'grounded', 200, ['right']]])
+    R.check('pulou os espinhos até o pilar', 46 <= i['tx'] <= 48 and i['ty'] == 11, i)
+    i = R.run([['hold', ['right', 'jump'], 22], ['until', 'grounded', 200, ['right']]])
     R.check('pulou os espinhos e subiu no bloco alto', i['ty'] == 9, i)
     i = R.run([['walk', 54], ['wait', 10]])
     R.check('obteve GANCHO', i['abilities']['hook'], i)
     R.shot('04_cisterna')
     print('    voltando pela cisterna até a galeria')
-    i = R.run([['walk', 50], ['hold', ['left'], 30], ['until', 'grounded', 200], ['walk', 32],
-               ['hold', ['jump'], 22], ['until', 'grounded', 120],
-               ['walk', 35], ['hold', ['jump'], 22], ['until', 'grounded', 120],
-               ['walk', 32], ['hold', ['jump'], 22], ['until', 'grounded', 120],
-               ['walk', 31], ['hold', ['jump'], 12], ['hold', ['jump'], 24], ['until', 'room:galeria', 200], ['until', 'grounded', 300]])
+    i = R.run([['walk', 50], ['hold', ['left'], 20], ['until', 'grounded', 200], ['hold', ['left', 'jump'], 12], ['hold', ['left', 'jump'], 20], ['until', 'grounded', 200, ['left']], ['walk', 30],
+               ['hold', ['jump'], 22], ['until', 'grounded', 120]])
+    R.check('  degrau 1 (grade linha 12)', i['ty'] == 11, i)
+    i = R.run([['walk', 31], ['hold', ['jump', 'right'], 22], ['until', 'grounded', 120, ['right']]])
+    R.check('  degrau 2 (grade linha 9)', i['ty'] == 8, i)
+    i = R.run([['walk', 34], ['hold', ['jump', 'left'], 22], ['until', 'grounded', 120, ['left']]])
+    R.check('  degrau 3 (grade linha 6)', i['ty'] == 5, i)
+    i = R.run([['walk', 31], ['hold', ['jump'], 12], ['hold', ['jump'], 22], ['until', 'room:galeria', 200], ['until', 'grounded', 300]])
     R.check('subiu da cisterna para a galeria', i['room'] == 'galeria', i)
 
     print('\n[8] Ponte com GANCHO: argolas sobre o abismo até a Torre')
     R.place('ponte', 19, 12, ALL)
-    seq = [['walk', 20], ['hold', ['jump', 'right'], 10], ['tap', 'attack'], ['until', 'hooked', 10]]
-    i = R.run(seq)
-    R.check('prendeu o chicote na primeira argola', i['hooked'], i)
-    for k in range(3):
-        i = R.run([['hold', ['right'], 26], ['tap', 'attack'], ['wait', 4]])
-    i = R.run([['hold', ['right'], 20], ['hold', ['jump', 'right'], 16], ['until', 'grounded', 200, ['right']]])
-    R.check('chegou à ilha central da ponte', i['tx'] >= 45 and i['tx'] <= 55 and i['room'] == 'ponte', i)
+    i = R.run([['walk', 19], ['hold', ['right'], 6], ['hold', ['jump', 'right'], 8], ['chain', 1]])
+    R.check('cruzou o primeiro vão pelas argolas até a ilha central', 45 <= i['tx'] <= 55 and i['room'] == 'ponte' and not i['dead'], i)
     R.shot('05_ponte')
-    i = R.run([['walk', 55], ['hold', ['jump', 'right'], 10], ['tap', 'attack'], ['wait', 4]])
-    for k in range(2):
-        i = R.run([['hold', ['right'], 26], ['tap', 'attack'], ['wait', 4]])
-    i = R.run([['hold', ['right'], 20], ['hold', ['jump', 'right'], 16], ['until', 'grounded', 200, ['right']]])
-    R.check('atravessou o segundo vão', i['tx'] >= 76, i)
+    i = R.run([['walk', 54], ['hold', ['right'], 6], ['hold', ['jump', 'right'], 8], ['chain', 1]])
+    R.check('atravessou o segundo vão', i['tx'] >= 76 and not i['dead'], i)
     i = R.run([['until', 'room:torre', 300, ['right']], ['until', 'grounded', 100]])
     R.check('entrou na Torre do Relógio', i['room'] == 'torre', i)
 
     print('\n[9] Galeria -> Torre pelas argolas sobre os espinhos')
-    R.place('galeria', 35, 13, ALL)
-    i = R.run([['walk', 36], ['hold', ['jump', 'right'], 10], ['tap', 'attack'], ['wait', 4]])
-    for k in range(2):
-        i = R.run([['hold', ['right'], 26], ['tap', 'attack'], ['wait', 4]])
-    i = R.run([['hold', ['right'], 20], ['hold', ['jump', 'right'], 16], ['until', 'room:torre', 300, ['right']], ['until', 'grounded', 200]])
+    R.place('galeria', 34, 13, ALL)
+    i = R.run([['walk', 35], ['hold', ['right'], 6], ['hold', ['jump', 'right'], 8], ['chain', 1], ['until', 'room:torre', 300, ['right']], ['until', 'grounded', 200]])
     R.check('galeria -> torre (base)', i['room'] == 'torre' and i['hearts'] == i['maxHearts'], i)
 
     print('\n[10] Torre: sem gancho não passa do 4º patamar; com gancho chega à Catedral')
@@ -184,6 +189,23 @@ def legs(R):
     fin = R.js('() => Game.G.state.finished')
     R.check('sino tocado (state.finished)', fin, i)
     R.shot('07_sino')
+
+    print('\n[extra] Opcionais: Telhado (pulo duplo) e coração do Porão (dash)')
+    R.place('passarela', 5, 10, D)
+    i = R.run([['walk', 5], ['hold', ['jump'], 12], ['hold', ['jump'], 24], ['until', 'grounded', 200]])
+    R.check('passarela: plataforma alta (linha 6) com pulo duplo', i['ty'] == 5, i)
+    i = R.run([['walk', 8], ['hold', ['right'], 2], ['hold', ['jump', 'right'], 12], ['hold', ['jump', 'right'], 18], ['until', 'grounded', 200, ['right']]])
+    R.check('subiu ao Telhado', i['room'] == 'telhado', i)
+    mh = R.js('() => Game.G.state.maxHearts')
+    i = R.run([['hold', ['jump', 'right'], 20], ['until', 'grounded', 200, ['right']],
+               ['walk', 18], ['hold', ['jump'], 8], ['hold', ['jump', 'right'], 6], ['hold', ['jump', 'right'], 20], ['until', 'grounded', 200]])
+    R.check('coração do Telhado (chaminé) coletado', R.js('() => !!Game.G.state.collected["telhado:21,7"]'), i)
+    R.place('porao', 50, 14, DD)
+    mh = R.js('() => Game.G.state.maxHearts')
+    i = R.run([['walk', 52], ['hold', ['right'], 4], ['tap', 'dash'], ['hold', ['right'], 30]])
+    R.check('coração do Porão atrás da grade (dash)', R.js('() => !!Game.G.state.collected["porao:57,14"]'), i)
+    i = R.run([['until', 'room:cisterna', 200, ['right']]])
+    R.check('nicho do coração liga à Cisterna', i['room'] == 'cisterna', i)
 
 
 def main():

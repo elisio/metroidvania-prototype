@@ -21,11 +21,29 @@
 
   /* ---------------- Cache de sala ---------------- */
   R.getCache = function (room) {
-    if (!room.cache || room.cacheDirty) {
-      room.cache = buildCache(room, room.cache);
+    const k = Game.Screen.k;
+    if (!room.cache || room.cacheDirty || room.cacheK !== k) {
+      // mantém só o cache da sala atual (salas grandes em alta resolução pesam na memória)
+      for (const id in Game.World.rooms) { const o = Game.World.rooms[id]; if (o !== room) o.cache = null; }
+      room.cache = buildCache(room, room.cache, k);
+      room.cacheK = k;
       room.cacheDirty = false;
     }
     return room.cache;
+  };
+
+  /** Desenha o cache do terreno 1:1 em pixels do dispositivo (sem reamostragem). */
+  R.drawCache = function (g, room, cam) {
+    const c = R.getCache(room), k = room.cacheK;
+    const W = g.canvas.width, H = g.canvas.height;
+    const ox = Math.round(cam.x * k), oy = Math.round(cam.y * k);
+    const sx = Math.max(0, ox), sy = Math.max(0, oy);
+    const sw = Math.min(W - (sx - ox), c.width - sx), sh = Math.min(H - (sy - oy), c.height - sy);
+    if (sw <= 0 || sh <= 0) return;
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.drawImage(c, sx, sy, sw, sh, sx - ox, sy - oy, sw, sh);
+    g.restore();
   };
 
   function solidAt(room, x, y) {
@@ -33,15 +51,19 @@
     return Game.TILE_SOLID[t] === 1;
   }
 
-  function buildCache(room, reuse) {
+  function buildCache(room, reuse, k) {
     let c = reuse;
-    if (!c || c.width !== room.pw || c.height !== room.ph) {
+    const W = Math.ceil(room.pw * k), H = Math.ceil(room.ph * k);
+    if (!c || c.width !== W || c.height !== H) {
       c = document.createElement('canvas');
-      c.width = room.pw; c.height = room.ph;
+      c.width = W; c.height = H;
     }
     const g = c.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0);
     g.clearRect(0, 0, c.width, c.height);
+    g.setTransform(k, 0, 0, k, 0, 0);
     g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
 
     // 1) decoração de fundo
     for (const d of room.deco) if (BACK_DECO[d[0]]) drawDeco(g, room, d);
@@ -58,9 +80,11 @@
         const x = tx * TS, y = ty * TS;
         switch (t) {
           case T.BRICK: case T.CRACK:
-            g.fillStyle = interior && room.theme !== 'factory' ? darkPat : brickPat;
-            if (room.theme === 'cathedral' || room.theme === 'tower') g.fillStyle = darkPat;
+            // sólidos sempre no tijolo "quente" para contrastar com o fundo escuro
+            g.fillStyle = brickPat;
             g.fillRect(x, y, TS, TS);
+            if (room.theme === 'cathedral' || room.theme === 'tower') { g.fillStyle = 'rgba(30,36,70,0.45)'; g.fillRect(x, y, TS, TS); }
+            else if (interior) { g.fillStyle = 'rgba(14,10,12,0.25)'; g.fillRect(x, y, TS, TS); }
             break;
           case T.BRICKB:
             g.fillStyle = darkPat; g.fillRect(x, y, TS, TS);
@@ -328,22 +352,43 @@
 
   /* ---------------- Fundos ---------------- */
   let skyCache = null;
-  function sky() {
+  function skyGrad(g) {
     if (!skyCache) {
-      const { c, g } = U.canvas(4, C.VIEW_H);
-      const gr = g.createLinearGradient(0, 0, 0, C.VIEW_H);
-      gr.addColorStop(0, PAL.skyTop); gr.addColorStop(0.6, PAL.skyMid); gr.addColorStop(1, PAL.skyLow);
-      g.fillStyle = gr; g.fillRect(0, 0, 4, C.VIEW_H);
-      skyCache = c;
+      skyCache = g.createLinearGradient(0, 0, 0, C.VIEW_H);
+      skyCache.addColorStop(0, PAL.skyTop); skyCache.addColorStop(0.6, PAL.skyMid); skyCache.addColorStop(1, PAL.skyLow);
     }
     return skyCache;
   }
 
-  /** Desenha uma imagem repetida na horizontal com deslocamento (parallax). */
-  function tileH(g, im, offX, y, scale) {
-    const w = im.width * scale, h = im.height * scale;
-    let x = -(((offX % w) + w) % w);
-    for (; x < C.VIEW_W; x += w) g.drawImage(im, x, y, w + 0.5, h);
+  /** Cópia pré-escalada de uma imagem (evita redimensionar a cada quadro). */
+  const scaledCache = {};
+  function scaled(name, s) {
+    const im = Tex.get(name);
+    const key = name + '@' + s.toFixed(3) + (Tex.real(name) ? 'r' : 'p');
+    if (!scaledCache[key]) {
+      const { c, g } = U.canvas(Math.round(im.width * s), Math.round(im.height * s));
+      g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+      g.drawImage(im, 0, 0, c.width, c.height);
+      scaledCache[key] = c;
+    }
+    return scaledCache[key];
+  }
+
+  /**
+   * Desenha uma imagem repetida na horizontal (parallax) em pixels do dispositivo:
+   * a imagem já vem pré-escalada por s·k, então não há reamostragem por quadro.
+   */
+  function tileH(g, name, s, offX, y) {
+    const K = Game.Screen.k;
+    const im = scaled(name, s * K);
+    const w = im.width;
+    let x = -Math.round(((offX * K % w) + w) % w);
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const a = g.globalAlpha;
+    g.globalAlpha = a;
+    for (; x < g.canvas.width; x += w) g.drawImage(im, x, Math.round(y * K));
+    g.restore();
   }
 
   /**
@@ -351,20 +396,20 @@
    * cam = posição da câmera (px da sala); room para a profundidade vertical.
    */
   R.drawExteriorBg = function (g, cam, room, time, flash) {
-    g.drawImage(sky(), 0, 0, C.VIEW_W, C.VIEW_H);
-    const far = Tex.get('bg_far');
+    g.fillStyle = skyGrad(g); g.fillRect(0, 0, C.VIEW_W, C.VIEW_H);
+    const far0 = Tex.get('bg_far');
     const wx = room.ox + cam.x, wy = room.oy + cam.y;
     // escala para cobrir a altura da tela com folga para o parallax vertical
-    const s = Math.max(1, (C.VIEW_H + 80) / far.height);
+    const s = Math.max(1, (C.VIEW_H + 80) / far0.height);
     const vy = U.clamp(-40 - (wy - 3 * C.CELL_H * TS) * 0.04, -120, 0);
-    tileH(g, far, wx * 0.1, vy + (C.VIEW_H + 80 - far.height * s), s);
+    tileH(g, 'bg_far', s, wx * 0.1, vy + (C.VIEW_H + 80 - far0.height * s));
     Game.FX.drawSearchlights(g, time);
     if (flash > 0) { g.fillStyle = 'rgba(200,215,255,' + (flash * 0.35) + ')'; g.fillRect(0, 0, C.VIEW_W, C.VIEW_H); }
-    const mid = Tex.get('bg_mid');
-    const ms = Math.max(1, (C.VIEW_H * 0.95) / mid.height);
-    const my = C.VIEW_H - mid.height * ms + U.clamp(-(wy - 3 * C.CELL_H * TS) * 0.12, -60, 140);
+    const mid0 = Tex.get('bg_mid');
+    const ms = Math.max(1, (C.VIEW_H * 0.95) / mid0.height);
+    const my = C.VIEW_H - mid0.height * ms + U.clamp(-(wy - 3 * C.CELL_H * TS) * 0.12, -60, 140);
     g.globalAlpha = 0.85;
-    tileH(g, mid, wx * 0.3, my, ms);
+    tileH(g, 'bg_mid', ms, wx * 0.3, my);
     g.globalAlpha = 1;
     // névoa azulada sobre o fundo para separar as camadas do primeiro plano
     g.fillStyle = 'rgba(26,32,54,0.28)';
@@ -383,10 +428,10 @@
     g.fillStyle = pat;
     g.fillRect(-ox, -oy, C.VIEW_W, C.VIEW_H);
     g.restore();
-    let tint = 'rgba(8,8,14,0.55)';
-    if (room.theme === 'factory') tint = 'rgba(20,12,8,0.5)';
-    if (room.theme === 'cathedral') tint = 'rgba(10,8,20,0.6)';
-    if (room.theme === 'tower') tint = 'rgba(8,10,20,0.6)';
+    let tint = 'rgba(6,6,12,0.66)';
+    if (room.theme === 'factory') tint = 'rgba(16,10,8,0.62)';
+    if (room.theme === 'cathedral') tint = 'rgba(8,8,22,0.66)';
+    if (room.theme === 'tower') tint = 'rgba(6,8,20,0.66)';
     g.fillStyle = tint; g.fillRect(0, 0, C.VIEW_W, C.VIEW_H);
     if (room.theme === 'tower') drawClockFace(g, cam, room, time);
   };
@@ -468,15 +513,18 @@
   /** Vinheta para dar profundidade (pré-renderizada). */
   let vig = null;
   R.drawVignette = function (g, strength) {
-    if (!vig) {
-      const { c, g: v } = U.canvas(C.VIEW_W / 2, C.VIEW_H / 2);
-      const gr = v.createRadialGradient(C.VIEW_W / 4, C.VIEW_H / 4, C.VIEW_H * 0.18, C.VIEW_W / 4, C.VIEW_H / 4, C.VIEW_W * 0.32);
+    const W = g.canvas.width, H = g.canvas.height;
+    if (!vig || vig.width !== W || vig.height !== H) {
+      const { c, g: v } = U.canvas(W, H);
+      const gr = v.createRadialGradient(W / 2, H / 2, H * 0.36, W / 2, H / 2, W * 0.64);
       gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,8,0.75)');
-      v.fillStyle = gr; v.fillRect(0, 0, C.VIEW_W / 2, C.VIEW_H / 2);
+      v.fillStyle = gr; v.fillRect(0, 0, W, H);
       vig = c;
     }
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
     g.globalAlpha = strength;
-    g.drawImage(vig, 0, 0, C.VIEW_W, C.VIEW_H);
-    g.globalAlpha = 1;
+    g.drawImage(vig, 0, 0);
+    g.restore();
   };
 })();

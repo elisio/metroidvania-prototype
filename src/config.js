@@ -64,6 +64,7 @@ Game.CONFIG = {
   HOOK_PUMP: 700,           // aceleração tangencial ao balançar com ←/→
   HOOK_MAX_SPEED: 900,
   HOOK_RELEASE_JUMP: 0.92,  // fração do pulo ao soltar com PULAR
+  HOOK_RELEASE_VX: 400,     // velocidade horizontal mínima ao soltar com PULAR
 
   ROOM_ENTER_UP_BOOST: 780, // impulso ao entrar numa sala por baixo (poço vertical)
   INVULN_TIME: 1.0,

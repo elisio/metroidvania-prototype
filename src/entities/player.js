@@ -319,6 +319,11 @@
     if (!p.hook) return;
     if (jump) {
       p.vy = Math.min(p.vy * 0.5, -C.JUMP_VELOCITY * C.HOOK_RELEASE_JUMP);
+      // impulso horizontal mínimo na direção pedida (ou do balanço): soltar é sempre útil
+      const dirIn = (I.held.right ? 1 : 0) - (I.held.left ? 1 : 0);
+      const dir = dirIn || U.sign(p.vx) || p.facing;
+      p.vx = dir * Math.max(Math.abs(p.vx) * (U.sign(p.vx) === dir ? 1 : 0.3), C.HOOK_RELEASE_VX);
+      p.facing = dir;
       p.jumping = true;
       sfx('jump');
     }

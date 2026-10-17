@@ -34,6 +34,18 @@
     g.globalAlpha = 1;
   };
 
+  let puff = null;
+  function puffSprite() {
+    if (!puff) {
+      const { c, g } = U.canvas(64, 64);
+      const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(200,205,225,0.55)'); gr.addColorStop(0.5, 'rgba(190,195,215,0.25)'); gr.addColorStop(1, 'rgba(190,195,215,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+      puff = c;
+    }
+    return puff;
+  }
+
   /* ---------- partículas ---------- */
   FX.clear = function () { FX.parts.length = 0; FX.after.length = 0; };
 
@@ -179,8 +191,10 @@
       if (!!p.add !== additive) continue;
       const k = 1 - p.t / p.life;
       if (p.kind === 'puff') {
-        g.fillStyle = p.col + ((p.a0 || 0.4) * k) + ')';
-        g.beginPath(); g.arc(p.x, p.y, p.size, 0, Math.PI * 2); g.fill();
+        // nuvem suave: sprite radial pré-gerado (mais barato e sem borda dura)
+        g.globalAlpha = Math.min(1, (p.a0 || 0.4) * k * 2.2 * Math.min(1, p.t * 6));
+        g.drawImage(puffSprite(), p.x - p.size * 1.6, p.y - p.size * 1.6, p.size * 3.2, p.size * 3.2);
+        g.globalAlpha = 1;
       } else if (p.kind === 'drop') {
         g.fillStyle = p.col + (0.8 * k) + ')';
         g.fillRect(p.x, p.y, p.size, p.size * 2);
@@ -231,12 +245,23 @@
     return c;
   }
 
+  let fogK = null, fogScaled = null;
   FX.drawFog = function (g, camX, time, y, alpha, speed) {
-    const f = fogStrip();
+    // desenhada em pixels do dispositivo a partir de uma cópia pré-escalada
+    const k = Game.Screen.k;
+    if (fogK !== k) {
+      const f = fogStrip();
+      const r = U.canvas(Math.round(1024 * k), Math.round(160 * k));
+      r.g.drawImage(f, 0, 0, r.c.width, r.c.height);
+      fogScaled = r.c; fogK = k;
+    }
+    const w = fogScaled.width;
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
     g.globalAlpha = alpha;
-    let x = -((((camX * 0.6) + time * speed) % 1024) + 1024) % 1024;
-    for (; x < C.VIEW_W; x += 1024) g.drawImage(f, x, y, 1024, 160);
-    g.globalAlpha = 1;
+    let x = -Math.round((((camX * 0.6 + time * speed) * k % w) + w) % w);
+    for (; x < g.canvas.width; x += w) g.drawImage(fogScaled, x, Math.round(y * k));
+    g.restore();
   };
 
   /** Holofotes cruzados varrendo o céu (desenhados sobre o bg_far). */

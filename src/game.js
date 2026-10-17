@@ -119,7 +119,7 @@
     if (p.cx() < 0) dir = 'L';
     else if (p.cx() > r.pw) dir = 'R';
     else if (p.y + p.h * 0.5 < 0 && p.vy <= 0) dir = 'U';
-    else if (p.y > r.ph) dir = 'D';
+    else if (p.cy() > r.ph) dir = 'D';
     if (!dir) return;
     const wx = r.ox + p.cx(), wy = r.oy + p.y + p.h; // pés em coordenadas globais
     const probeX = r.ox + (dir === 'L' ? -4 : dir === 'R' ? r.pw + 4 : p.cx());
@@ -150,6 +150,7 @@
     if (tr.dir === 'U') {
       p.vy = Math.min(p.vy, -C.ROOM_ENTER_UP_BOOST);  // impulso para alcançar a borda do poço
       p.doubleUsed = false; p.airDashUsed = false;      // poços verticais são tolerantes
+      p.jumping = false;                                // não aplica o corte de pulo variável no impulso
       p.y = Math.min(p.y, tr.next.ph - p.h - 2);
     }
     if (tr.dir === 'D') { p.y = Math.max(p.y, -p.h * 0.4); }
@@ -513,7 +514,7 @@
     const k = Game.Screen.k;
     g.setTransform(k, 0, 0, k, 0, 0);
     g.imageSmoothingEnabled = true;
-    g.imageSmoothingQuality = 'high';
+    g.imageSmoothingQuality = 'medium';
     const time = G.time;
 
     if (G.scene === 'title' || G.scene === 'boot') {
@@ -549,10 +550,7 @@
     g.save();
     g.translate(-cam.x, -cam.y);
     // terreno (cache)
-    const cache = Game.Terrain.getCache(room);
-    const sx = Math.max(0, cam.x), sy = Math.max(0, cam.y);
-    const sw = Math.min(VW, room.pw - sx), sh = Math.min(VH, room.ph - sy);
-    if (sw > 0 && sh > 0) g.drawImage(cache, sx, sy, sw, sh, sx, sy, sw, sh);
+    Game.Terrain.drawCache(g, room, cam);
     Game.Terrain.drawDynamic(g, room, cam, time, G.player.dashT > 0);
     // objetos
     for (const o of G.objs) Game.Objects.draw(g, o, time, G.state.abilities.hook, G.nearRing);
@@ -653,6 +651,7 @@
       if (G.scene !== 'play') { G.startFrom(Game.Save.fresh(), true); }
       G.trans = null; G.fade = 0; G.overlay = null; G.deathT = 0; G.banner = null;
       if (abilities) Object.assign(G.state.abilities, abilities);
+      G.state.hearts = G.state.maxHearts;
       G.teleport(roomId, tx, ty);
       const p = G.player;
       p.dashT = 0; p.attackT = 0; p.hook = null; p.invuln = 0;
@@ -671,6 +670,13 @@
     run(seq) {
       const step = () => G.update(C.FIXED_DT);
       const log = [];
+      const step0 = step;
+      // fecha diálogos automaticamente (livros/relíquias) para não travar a rota
+      const stepAuto = () => {
+        step0();
+        if (G.overlay === 'dialog') { Game.Dialog.cur = null; G.overlay = null; log.push('dialog'); }
+      };
+      return (function (step) {
       for (const cmd of seq) {
         const op = cmd[0];
         if (op === 'walk') {
@@ -688,6 +694,29 @@
           for (const a of cmd[1]) { I.virt[a] = true; I.latch[a] = true; }
           for (let i = 0; i < cmd[2]; i++) step();
           I.virt = {};
+        } else if (op === 'chain') {
+          // ['chain', dir, quadrosPendurada]: encadeia argolas na direção dir até pousar
+          const dir = cmd[1], hang = cmd[2] || 14;
+          let last = null, hookedFrames = 0, used = 0, landed = false;
+          for (let i = 0; i < 1200; i++) {
+            const p = G.player;
+            I.virt = { right: dir > 0, left: dir < 0 };
+            if (p.hook) {
+              last = p.hook.ring; hookedFrames++;
+              if (hookedFrames >= hang && p.hook.fireT <= 0) { I.latch.jump = true; I.virt.jump = true; }
+            } else {
+              hookedFrames = 0;
+              if (!p.grounded) {
+                const r = Game.Player.findRing(p, G, last);
+                if (r && r !== last && (r.x - p.cx()) * dir > -24) { I.latch.attack = true; used++; }
+              }
+            }
+            step();
+            if (G.trans || G.deathT > 0) break;
+            if (G.player.grounded && used > 0 && !G.player.hook) { landed = true; break; }
+          }
+          I.virt = {};
+          log.push('chain rings=' + used + (landed ? ' landed' : ''));
         } else if (op === 'tap') {
           I.latch[cmd[1]] = true; step();
         } else if (op === 'wait') {
@@ -707,11 +736,11 @@
           I.virt = {};
           if (!ok) log.push('timeout ' + cond);
         }
-        if (G.overlay === 'dialog') { Game.Dialog.cur = null; G.overlay = null; log.push('dialog closed'); }
       }
       const out = Game.Test.info();
       out.log = log;
       return out;
+      })(stepAuto);
     },
     info() {
       const p = G.player;

@@ -44,17 +44,20 @@
     try { window.localStorage.removeItem(C.SAVE_KEY); } catch (e) { /* sem storage */ }
   };
 
+  /*
+   * Preferências: volumes vivem no próprio Game.Audio (que já os salva);
+   * aqui só guardamos o que é do motor (tremor de tela).
+   */
   Game.Settings = {
-    data: { music: 0.7, sfx: 0.8, shake: true },
-    load() { const d = read(C.SETTINGS_KEY); if (d) Object.assign(this.data, d); this.apply(); },
-    store() { write(C.SETTINGS_KEY, this.data); this.apply(); },
-    apply() {
-      try {
-        if (Game.Audio && Game.Audio.setVolume) {
-          Game.Audio.setVolume('music', this.data.music);
-          Game.Audio.setVolume('sfx', this.data.sfx);
-        }
-      } catch (e) { /* áudio opcional */ }
+    data: { shake: true },
+    load() { const d = read(C.SETTINGS_KEY); if (d && typeof d.shake === 'boolean') this.data.shake = d.shake; },
+    store() { write(C.SETTINGS_KEY, { shake: this.data.shake }); },
+    vol(bus) {
+      try { if (Game.Audio && Game.Audio.getVolume) return Game.Audio.getVolume(bus); } catch (e) { /* opcional */ }
+      return 0;
+    },
+    setVol(bus, v) {
+      try { if (Game.Audio && Game.Audio.setVolume) Game.Audio.setVolume(bus, v); } catch (e) { /* opcional */ }
     }
   };
 })();
